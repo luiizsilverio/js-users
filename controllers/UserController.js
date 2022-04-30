@@ -6,6 +6,7 @@ class UserController {
     this.userSel = {}
     this.userIndex = -1
     this.onSubmit()
+    this.selectAll()
   }
 
 
@@ -48,7 +49,6 @@ class UserController {
   setValues(user) {
     if (!user) return
 
-    console.log(user)
     Array.from(this.formEl.elements).forEach((field, index) => {
 
       if (field.name === "gender") {
@@ -92,7 +92,7 @@ class UserController {
   onEdit(trUser) {
     const btnEdt = trUser.querySelectorAll("button.btn-edit")
 
-    this.formEl.reset()
+    this.reset()
 
     if (btnEdt.length > 0) {
       btnEdt[0].addEventListener("click", (event) => {
@@ -131,13 +131,12 @@ class UserController {
           user.photo = content
 
           if (this.userSel.name) {
-            // this.editUser(user, this.tableId)
+            this.editUser(user)
           } else {
-            this.addUser(user, this.tableId)
+            this.addUser(user)
           }
 
-          this.formEl.reset()
-          this.userSel = {}
+          this.reset()
           btn.disabled = false
         })
         .catch((err) => {
@@ -146,11 +145,16 @@ class UserController {
     })
 
     this.formEl.addEventListener("reset", (event) => {
-      this.formEl.reset()
-      this.userSel = {}
+      this.reset()
     })
   }
 
+
+  reset() {
+    this.formEl.reset()
+    this.userSel = {}
+    this.userIndex = -1
+  }
 
   getImage() {
     return new Promise((resolve, reject) => {
@@ -171,14 +175,47 @@ class UserController {
 
       if (file) {
         fileReader.readAsDataURL(file)
-      } else {
+      }
+      else if (this.userIndex >= 0) {
+        resolve(this.userSel.photo)
+      }
+      else {
         resolve('dist/img/boxed-bg.jpg') // retorna foto padrão
       }
     })
   }
 
 
-  addUser(user) {
+  getUsersStorage() {
+    let users = []
+
+    if (sessionStorage.getItem("hcode:users")) {
+      users = JSON.parse(sessionStorage.getItem("hcode:users"))
+    }
+
+    return users
+  }
+
+
+  selectAll() {
+    let users = this.getUsersStorage()
+
+    users.forEach((user) => {
+      user.dtcad = new Date(user.dtcad)
+      this.addUser(user, false)
+    })
+  }
+
+
+  store(data) {
+    let users = this.getUsersStorage()
+
+    users.push(data)
+    sessionStorage.setItem("hcode:users", JSON.stringify(users))
+  }
+
+
+  addUser(user, storeUser = true) {
     let trUser = document.createElement('tr')
 
     const objUser = {
@@ -189,7 +226,12 @@ class UserController {
       country: user.country,
       password: user.password,
       photo: user.photo,
-      admin: user.admin
+      admin: user.admin,
+      dtcad: user.dtcad
+    }
+
+    if (storeUser) {
+      this.store(objUser)
     }
 
     trUser.dataset.user = JSON.stringify(objUser)
@@ -230,7 +272,7 @@ class UserController {
   }
 
   editUser(user) {
-    const trUsers = trUser.querySelectorAll('tr')
+    const trUsers = document.querySelectorAll('tr')
     const trUser = trUsers[this.userIndex]
     const oldUser = JSON.parse(trUser.dataset.user)
 
@@ -242,14 +284,14 @@ class UserController {
       country: user.country,
       password: user.password,
       photo: user.photo,
-      admin: user.admin
+      admin: user.admin,
+      dtcad: user.dtcad
     }
 
     if (!user.photo && oldUser.photo) {
       objUser.photo = oldUser.photo
+      user.photo = oldUser.photo
     }
-
-    trUser.dataset.user = JSON.stringify(objUser)
 
     trUser.innerHTML = `
       <tr>
@@ -265,7 +307,7 @@ class UserController {
       </tr>
     `
 
-    this.tableEl.append(trUser)
+    trUser.dataset.user = JSON.stringify(objUser)
     this.countUsers()
     this.onDelete()
     this.onEdit(trUser)
